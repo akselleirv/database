@@ -1,0 +1,41 @@
+version: "2"
+
+linters:
+  # "standard" = errcheck, govet, ineffassign, staticcheck, unused
+  default: standard
+  enable:
+    - errorlint      # proper error wrapping/comparison (matters for durability code)
+    - bodyclose      # closed file/IO handles — relevant for the pager
+    - unconvert      # redundant type conversions
+    - unparam        # unused function params
+    - misspell       # comments/strings typos
+    - revive         # broad style/idiom linter (replaces golint)
+    - gocritic       # opinionated correctness/style checks
+    - predeclared    # shadowing predeclared identifiers (len, cap, ...)
+    - nilerr         # returning nil when err is non-nil
+  settings:
+    errcheck:
+      check-type-assertions: true
+    revive:
+      rules:
+        - name: exported            # require doc comments on exported symbols
+        - name: error-strings       # error strings lowercase, no punctuation
+        - name: error-return        # error is the last return value
+        - name: unreachable-code
+        - name: context-as-argument
+  exclusions:
+    rules:
+      # tests may swallow errors and skip exported-doc rules
+      - path: _test\.go
+        linters:
+          - errcheck
+          - revive
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/akselleirv/database

@@ -1,0 +1,17 @@
+# Binaries / build output
+/bin/
+*.exe
+*.out
+
+# Database files produced by the engine
+*.db
+*.wal
+
+# Test artifacts
+*.test
+coverage.out
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
