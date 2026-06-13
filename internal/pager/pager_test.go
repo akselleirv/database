@@ -2,6 +2,7 @@ package pager
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -163,24 +164,69 @@ func TestWriteReadRejectWrongBufferSize(t *testing.T) {
 	}
 }
 
-// --- Design-choice placeholders: YOU decide the contract, then write these. ---
-//
-// The lesson leaves these open on purpose. Once you've made the call, replace
-// the t.Skip with assertions that pin your chosen behavior.
+// --- The decided edge-case contract (see lesson "Decisions"). ---
 
-func TestReadPastEOF(t *testing.T) {
-	t.Skip("DESIGN CHOICE (Q3): decide whether reading an unallocated/past-EOF " +
-		"page is an error or returns a zero-filled page, then assert it here.")
+// Decision 3: reading an unallocated page (id >= PageCount) is an error.
+func TestReadUnallocatedPageErrors(t *testing.T) {
+	p, err := Open(tmpDB(t))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer p.Close()
+
+	beyond := p.PageCount() // first id that has not been allocated
+	if err := p.ReadPage(beyond, make([]byte, PageSize)); err == nil {
+		t.Errorf("ReadPage(%d) on unallocated page: want error, got nil", beyond)
+	}
 }
 
-func TestOpenRejectsOrRepairsTornFile(t *testing.T) {
-	t.Skip("DESIGN CHOICE (Q2): decide what Open does when the file length is " +
-		"not a whole number of pages (error / truncate / round down). Create " +
-		"such a file with os.WriteFile of a non-multiple length, then assert it.")
+// Decision 2: Open errors when the file length is not a whole number of pages.
+func TestOpenRejectsTornFile(t *testing.T) {
+	path := tmpDB(t)
+
+	// First create a valid db so the magic/meta page is well-formed...
+	p, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if err := p.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// ...then corrupt it by appending a partial page (torn tail).
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		t.Fatalf("open for append: %v", err)
+	}
+	if _, err := f.Write(make([]byte, 17)); err != nil {
+		t.Fatalf("write partial: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	if _, err := Open(path); err == nil {
+		t.Errorf("Open on torn file (length not a multiple of PageSize): want error, got nil")
+	}
 }
 
-func TestDurabilityContract(t *testing.T) {
-	t.Skip("DESIGN CHOICE (Q5): document whether WritePage fsyncs or defers to " +
-		"Sync. Hard to assert portably, but at minimum assert Sync() returns nil " +
-		"after writes and the reopen test above covers the persisted path.")
+// Decision 5: WritePage defers durability; Sync is the explicit flush and must
+// succeed after writes.
+func TestSyncAfterWrites(t *testing.T) {
+	p, err := Open(tmpDB(t))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer p.Close()
+
+	id, err := p.AllocatePage()
+	if err != nil {
+		t.Fatalf("AllocatePage: %v", err)
+	}
+	if err := p.WritePage(id, makePage(0xEE)); err != nil {
+		t.Fatalf("WritePage: %v", err)
+	}
+	if err := p.Sync(); err != nil {
+		t.Errorf("Sync after write: %v", err)
+	}
 }

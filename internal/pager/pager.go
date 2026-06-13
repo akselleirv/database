@@ -23,34 +23,33 @@ type Pager struct {
 // Open opens (or creates) the database file at path and prepares it for paged
 // access.
 //
-// On a fresh file it must establish the reserved meta page (page 0). On an
-// existing file it must validate the file's size/shape and recover the page
-// count. Decide what happens when the file length is not a whole number of
-// pages (design question 2).
+// On a fresh file it establishes the reserved meta page (page 0: magic number +
+// page size). On an existing file it validates that header and recovers the page
+// count. If the file length is not a whole number of pages, Open returns an
+// error (we do not truncate/repair — that is the WAL's job later).
 func Open(path string) (*Pager, error) {
 	// TODO
 	return nil, nil
 }
 
 // ReadPage reads the page with the given id into dst. dst must be exactly
-// PageSize bytes. Define and enforce the behavior for reads past the current
-// end of the file (design question 3): error, or zero-fill?
+// PageSize bytes. Reading an unallocated page (id >= PageCount) returns an
+// error; there is no zero-fill-on-read.
 func (p *Pager) ReadPage(id PageID, dst []byte) error {
 	// TODO
 	return nil
 }
 
 // WritePage writes the PageSize bytes in src to the page with the given id.
-// src must be exactly PageSize bytes. Decide whether this fsyncs or defers
-// durability to Sync (design question 5).
+// src must be exactly PageSize bytes. WritePage does NOT fsync; call Sync to
+// make writes durable.
 func (p *Pager) WritePage(id PageID, src []byte) error {
 	// TODO
 	return nil
 }
 
-// AllocatePage grows the file by one page and returns the new page's id.
-// Decide whether it zero-fills the new page immediately or only reserves the
-// id (design question 6).
+// AllocatePage grows the file by one zero-filled page and returns the new
+// page's id, keeping file length == PageCount * PageSize.
 func (p *Pager) AllocatePage() (PageID, error) {
 	// TODO
 	return 0, nil
